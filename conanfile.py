@@ -21,7 +21,7 @@ class CppFmuConan(ConanFile):
     package_type = "static-library"
     options = {
         "fPIC": [True, False],
-        "use_fmi_version": [1, 2, 3]
+        "use_fmi_version": [1, 2, 3, "all"]
     }
     default_options = {
         "fPIC": True,
@@ -68,6 +68,11 @@ class CppFmuConan(ConanFile):
             self.requires("fmi1/1.0.1", transitive_headers=True)
         elif self.options.use_fmi_version == 3:
             self.requires("fmi3/3.0.2", transitive_headers=True)
+        elif self.options.use_fmi_version == "all":
+            # Combined build: ship both FMI 2.0 and FMI 3.0 so one package can serve
+            # a consumer that builds an FMI 2.0 module and an FMI 3.0 module at once.
+            self.requires("fmi2/2.0.4", transitive_headers=True)
+            self.requires("fmi3/3.0.2", transitive_headers=True)
         else:
             self.requires("fmi2/2.0.4", transitive_headers=True)
 
@@ -90,6 +95,7 @@ class CppFmuConan(ConanFile):
         tc = CMakeToolchain(self)
         tc.variables["CPPFMU_FMI_1"] = self.options.use_fmi_version == 1
         tc.variables["CPPFMU_FMI_3"] = self.options.use_fmi_version == 3
+        tc.variables["CPPFMU_FMI_ALL"] = self.options.use_fmi_version == "all"
         tc.generate()
         deps = CMakeDeps(self)
         deps.generate()
@@ -117,5 +123,16 @@ class CppFmuConan(ConanFile):
             self.output.info("Define fmi3")
             self.cpp_info.defines = ["CPPFMU_USE_FMI_3_0=1"]
             self.cpp_info.requires = ["fmi3::fmi3"]
+        elif self.options.use_fmi_version == "all":
+            # Combined build ships both FMI 2.0 and FMI 3.0. No version macro is set
+            # here on purpose: cppfmu_common.hpp selects the FMI version by macro, so
+            # a single package-wide define would force every consuming translation
+            # unit onto one version. Each consuming module sets the macro itself --
+            # an FMI 3.0 module compiles with CPPFMU_USE_FMI_3_0, an FMI 2.0 module
+            # with neither -- and links the one static library, which carries the
+            # out-of-line symbols of both SlaveInstance (FMI 2.0) and SlaveInstance3
+            # (FMI 3.0).
+            self.output.info("Define fmi2 + fmi3 (combined)")
+            self.cpp_info.requires = ["fmi2::fmi2", "fmi3::fmi3"]
         else:
             self.cpp_info.requires = ["fmi2::fmi2"]

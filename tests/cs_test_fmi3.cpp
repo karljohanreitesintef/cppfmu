@@ -373,15 +373,16 @@ int main()
         fmi3FreeInstance(nullptr);
     }
 
-    // Test fmi3Reset
+    // Termination (FMI 3.0). Terminate is legal from Step Mode; the state machine
+    // then allows Reset from Terminated, which returns the instance to Instantiated.
+    const auto terminateResult = fmi3Terminate(instance);
+    assert(terminateResult == fmi3OK);
+
+    // Test fmi3Reset (from Terminated)
     {
         const auto rc = fmi3Reset(instance);
         assert(rc == fmi3OK);
     }
-
-    // Termination (FMI 3.0)
-    const auto terminateResult = fmi3Terminate(instance);
-    assert(terminateResult == fmi3OK);
 
     fmi3FreeInstance(instance);
 
