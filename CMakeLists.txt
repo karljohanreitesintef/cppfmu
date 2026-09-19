@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
 enable_testing()
 
+# Emit a compile_commands.json so clangd and clang-tidy see each source with the
+# exact flags it is built with -- in particular the CPPFMU_USE_FMI_3_0 macro on
+# the FMI 3.0 sources, without which the tools resolve the wrong fmi*Functions.h.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 file(STRINGS "${CMAKE_SOURCE_DIR}/version.txt" projectVersion)
 
 project("cppfmu-library" VERSION ${projectVersion})
@@ -30,7 +35,8 @@ if(CPPFMU_FMI_ALL)
 
     add_library(cppfmu STATIC
         ${CMAKE_SOURCE_DIR}/cppfmu_cs.cpp
-        ${CMAKE_SOURCE_DIR}/cppfmu_cs_fmi3.cpp)
+        ${CMAKE_SOURCE_DIR}/cppfmu_cs_fmi3.cpp
+        ${CMAKE_SOURCE_DIR}/cppfmu_lifecycle_fmi3.cpp)
     set_source_files_properties(${CMAKE_SOURCE_DIR}/cppfmu_cs_fmi3.cpp
         PROPERTIES COMPILE_DEFINITIONS CPPFMU_USE_FMI_3_0)
     target_include_directories(cppfmu PUBLIC ${CMAKE_SOURCE_DIR})
@@ -43,7 +49,9 @@ else()
     elseif(CPPFMU_FMI_3)
         find_package(fmi3 CONFIG REQUIRED)
         set(FMI fmi3::fmi3)
-        set(FMI_SOURCES ${CMAKE_SOURCE_DIR}/cppfmu_cs_fmi3.cpp)
+        set(FMI_SOURCES
+            ${CMAKE_SOURCE_DIR}/cppfmu_cs_fmi3.cpp
+            ${CMAKE_SOURCE_DIR}/cppfmu_lifecycle_fmi3.cpp)
     else()
         find_package(fmi2 CONFIG REQUIRED)
         set(FMI fmi2::fmi2)
@@ -66,10 +74,12 @@ install(FILES ${CMAKE_SOURCE_DIR}/cppfmu_common.hpp DESTINATION include)
 if(CPPFMU_FMI_ALL)
     install(FILES ${CMAKE_SOURCE_DIR}/cppfmu_cs.hpp DESTINATION include)
     install(FILES ${CMAKE_SOURCE_DIR}/cppfmu_cs_fmi3.hpp DESTINATION include)
+    install(FILES ${CMAKE_SOURCE_DIR}/cppfmu_lifecycle_fmi3.hpp DESTINATION include)
     install(FILES ${CMAKE_SOURCE_DIR}/fmi_functions.cpp DESTINATION src)
     install(FILES ${CMAKE_SOURCE_DIR}/fmi3_functions.cpp DESTINATION src)
 elseif(CPPFMU_FMI_3)
     install(FILES ${CMAKE_SOURCE_DIR}/cppfmu_cs_fmi3.hpp DESTINATION include)
+    install(FILES ${CMAKE_SOURCE_DIR}/cppfmu_lifecycle_fmi3.hpp DESTINATION include)
     install(FILES ${CMAKE_SOURCE_DIR}/fmi3_functions.cpp DESTINATION src)
 else()
     install(FILES ${CMAKE_SOURCE_DIR}/cppfmu_cs.hpp DESTINATION include)
@@ -96,6 +106,14 @@ if(CPPFMU_FMI_ALL)
     target_compile_definitions(cs_test_fmi3 PRIVATE CPPFMU_USE_FMI_3_0)
     target_link_libraries(cs_test_fmi3 PRIVATE cppfmu)
     add_test(NAME "cs_test_fmi3" COMMAND cs_test_fmi3)
+
+    add_executable(lifecycle_fmi3_test
+        "tests/lifecycle_fmi3_test.cpp"
+        "cppfmu_lifecycle_fmi3.cpp"
+    )
+    target_compile_features(lifecycle_fmi3_test PRIVATE cxx_std_11)
+    target_include_directories(lifecycle_fmi3_test PRIVATE ${CMAKE_SOURCE_DIR})
+    add_test(NAME "lifecycle_fmi3_test" COMMAND lifecycle_fmi3_test)
 elseif(CPPFMU_FMI_1)
     add_executable(cs_test
         "tests/cs_test.cpp"
@@ -114,6 +132,14 @@ elseif(CPPFMU_FMI_3)
     target_compile_features(cs_test PRIVATE cxx_std_11)
     target_link_libraries(cs_test PRIVATE cppfmu)
     add_test(NAME "cs_test" COMMAND cs_test)
+
+    add_executable(lifecycle_fmi3_test
+        "tests/lifecycle_fmi3_test.cpp"
+        "cppfmu_lifecycle_fmi3.cpp"
+    )
+    target_compile_features(lifecycle_fmi3_test PRIVATE cxx_std_11)
+    target_include_directories(lifecycle_fmi3_test PRIVATE ${CMAKE_SOURCE_DIR})
+    add_test(NAME "lifecycle_fmi3_test" COMMAND lifecycle_fmi3_test)
 else()
     add_executable(cs_test
         "tests/cs_test.cpp"
