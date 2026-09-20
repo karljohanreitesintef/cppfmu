@@ -41,6 +41,16 @@ class CppFmuConan(ConanFile):
             "msvc": "170",
         }
 
+    def _commit_is_on(self, git, commit, remote):
+        """Is `commit` reachable from a branch of `remote` in this checkout?
+
+        Conan's own Git.commit_in_remote() answers "is it on *any* remote", so a
+        commit pushed only to a fork makes it record the origin URL, and the
+        resulting package fails to clone. This asks about one named remote.
+        """
+        branches = git.run(f'branch -r --contains {commit} --list "{remote}/*"')
+        return bool(branches.strip())
+
     def export(self):
         copy(self, "version.txt", self.recipe_folder, self.export_folder)
         git = Git(self, self.recipe_folder)
@@ -48,7 +58,19 @@ class CppFmuConan(ConanFile):
             scm_commit = environ.get("GITHUB_SHA")
             scm_url = f"{environ.get('GITHUB_SERVER_URL')}/{environ.get('GITHUB_REPOSITORY')}"
         else:
-            scm_url, scm_commit = git.get_url_and_commit()
+            if git.is_dirty():
+                raise ConanInvalidConfiguration(
+                    f"Repo is dirty, cannot capture url and commit: {git.folder}")
+            scm_commit = git.get_commit()
+            scm_url = git.get_remote_url()
+            if not self._commit_is_on(git, scm_commit, "origin"):
+                # Unpushed, or pushed only to a fork: clone this checkout instead, so
+                # a local `conan create` is buildable. Such a package is reproducible
+                # only on this machine -- publish it only after pushing to origin.
+                self.output.warning(
+                    f"Commit {scm_commit} is not on origin; recording the local "
+                    "checkout as the source URL. Not buildable elsewhere.")
+                scm_url = git.get_repo_root()
 
         update_conandata(self, {"sources": {"commit": scm_commit, "url": scm_url}})
 
