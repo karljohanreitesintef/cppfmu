@@ -25,7 +25,7 @@ Supported FMI Versions
 |---------|--------|--------|----------------|---------------|
 | FMI 1.0 | Stable | `cppfmu_cs.hpp` | `cppfmu_cs.cpp` | `fmi_functions.cpp` |
 | FMI 2.0 | Stable | `cppfmu_cs.hpp` | `cppfmu_cs.cpp` | `fmi_functions.cpp` |
-| FMI 3.0 | Partial | `cppfmu_cs_fmi3.hpp` | `cppfmu_cs_fmi3.cpp` | `fmi3_functions.cpp` |
+| FMI 3.0 | Partial | `cppfmu_cs_fmi3.hpp` | `cppfmu_cs_fmi3.cpp`, `cppfmu_lifecycle_fmi3.cpp` | `fmi3_functions.cpp` |
 
 ### FMI 3.0 Support Status
 
@@ -41,7 +41,6 @@ virtual method are hardcoded stubs that always return `fmi3Error`.
 - Enhanced `DoStep` with early return, event handling, and termination output parameters
 - Event Mode (`EnterEventMode`, `EvaluateDiscreteStates`, `UpdateDiscreteStates`, `EnterStepMode`)
 - `GetNumberOfEventIndicators` / `GetNumberOfContinuousStates`
-- Debug logging with categories
 
 **Genuine stubs (no virtual method — cannot be overridden by users):**
 - **Configuration Mode** — `fmi3EnterConfigurationMode` / `fmi3ExitConfigurationMode`
@@ -50,9 +49,27 @@ virtual method are hardcoded stubs that always return `fmi3Error`.
   (optional feature for variable-interval and shifted clocks)
 - **Intermediate Update Callback** — parameter accepted during instantiation but ignored
 
+Debug logging with categories (`fmi3SetDebugLogging`) is handled entirely by the
+C API wrapper, so there is no virtual method for it.
+
 **Note:** `GetClock` and `SetClock` have virtual methods on `SlaveInstance3` and can be
 overridden by users; the default implementation throws `std::logic_error` for non-zero
 variable references, consistent with other type-specific Get/Set methods.
+
+### FMI 3.0 lifecycle enforcement
+
+FMI 3.0 prescribes which calls are legal in which mode, and CPPFMU enforces
+this for you. The `cppfmu::Lifecycle` class
+(`cppfmu_lifecycle_fmi3.{hpp,cpp}`) holds the whole Co-Simulation state graph
+in one transition table: a call made in a state that does not allow it is
+refused with `fmi3Error` and never reaches your slave, and a call that throws
+something other than a refusal puts the instance in a failed state, from which
+only freeing, resetting or restoring a saved FMU state escapes. Your slave code
+therefore does not need to check the current mode itself.
+
+This applies to FMI 3.0 only; the FMI 1.0/2.0 implementation has no state
+machine. When you compile CPPFMU by hand rather than through Conan, remember to
+compile `cppfmu_lifecycle_fmi3.cpp` alongside `cppfmu_cs_fmi3.cpp`.
 
 ### Why `SlaveInstance3` Instead of Extending `SlaveInstance`?
 
