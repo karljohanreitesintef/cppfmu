@@ -24,53 +24,56 @@
  *     v' = (F - c * v - k * x) / m
  */
 
-namespace msd {
+namespace msd
+{
 
-struct MassSpringDamper {
-  // Parameters (set before/at initialization).
-  double mass = 1.0;       // m  [kg]   (must be > 0)
-  double stiffness = 10.0; // k  [N/m]
-  double damping = 0.5;    // c  [N*s/m]
+struct MassSpringDamper
+{
+    // Parameters (set before/at initialization).
+    double mass = 1.0;       // m  [kg]   (must be > 0)
+    double stiffness = 10.0; // k  [N/m]
+    double damping = 0.5;    // c  [N*s/m]
 
-  // Input (set every step).
-  double force = 0.0; // F  [N]
+    // Input (set every step).
+    double force = 0.0; // F  [N]
 
-  // State / outputs.
-  double position = 0.0; // x  [m]
-  double velocity = 0.0; // v  [m/s]
+    // State / outputs.
+    double position = 0.0; // x  [m]
+    double velocity = 0.0; // v  [m/s]
 
-  // Resets state to the given initial conditions. Parameters are left as-is.
-  void Reset(double initialPosition = 0.0, double initialVelocity = 0.0) {
-    position = initialPosition;
-    velocity = initialVelocity;
-  }
+    // Resets state to the given initial conditions. Parameters are left as-is.
+    void Reset(double initialPosition = 0.0, double initialVelocity = 0.0)
+    {
+        position = initialPosition;
+        velocity = initialVelocity;
+    }
 
-  /* Advances the state by 'dt' seconds using semi-implicit (symplectic)
+    /* Advances the state by 'dt' seconds using semi-implicit (symplectic)
    * Euler integration, which is stable and energy-preserving for this kind
    * of oscillatory system. A single FMI DoStep may call this several times
    * with a smaller internal step for accuracy.
    */
-  void Integrate(double dt) {
-    const double acceleration =
-        (force - damping * velocity - stiffness * position) / mass;
-    velocity += acceleration * dt; // update velocity first ...
-    position += velocity * dt;     // ... then position (symplectic Euler)
-  }
+    void Integrate(double dt)
+    {
+        const double acceleration =
+            (force - damping * velocity - stiffness * position) / mass;
+        velocity += acceleration * dt; // update velocity first ...
+        position += velocity * dt;     // ... then position (symplectic Euler)
+    }
 
-  /* Advances by 'stepSize' seconds, subdividing it into internal steps no
+    /* Advances by 'stepSize' seconds, subdividing it into internal steps no
    * larger than 'maxInternalStep' for accuracy.
    */
-  void DoStep(double stepSize, double maxInternalStep = 1e-3) {
-    if (stepSize <= 0.0)
-      return;
-    int subSteps = static_cast<int>(stepSize / maxInternalStep);
-    if (subSteps < 1)
-      subSteps = 1;
-    const double dt = stepSize / subSteps;
-    for (int i = 0; i < subSteps; ++i) {
-      Integrate(dt);
+    void DoStep(double stepSize, double maxInternalStep = 1e-3)
+    {
+        if (stepSize <= 0.0) return;
+        int subSteps = static_cast<int>(stepSize / maxInternalStep);
+        if (subSteps < 1) subSteps = 1;
+        const double dt = stepSize / subSteps;
+        for (int i = 0; i < subSteps; ++i) {
+            Integrate(dt);
+        }
     }
-  }
 };
 
 } // namespace msd

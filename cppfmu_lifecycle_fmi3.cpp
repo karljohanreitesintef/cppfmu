@@ -5,15 +5,20 @@
  */
 #include "cppfmu_lifecycle_fmi3.hpp"
 
-namespace cppfmu {
+namespace cppfmu
+{
 
-namespace {
+namespace
+{
 
 using State = Lifecycle::State;
 
 // One bit per State, so a set of legal states is a mask the current state is
 // tested against.
-constexpr unsigned StateBit(State s) { return 1u << static_cast<unsigned>(s); }
+constexpr unsigned StateBit(State s)
+{
+    return 1u << static_cast<unsigned>(s);
+}
 
 constexpr unsigned kInstantiated = StateBit(State::Instantiated);
 constexpr unsigned kInitialization = StateBit(State::Initialization);
@@ -37,13 +42,17 @@ constexpr unsigned kReadable = kWritable | kTerminated;
 // mistaken for one.
 constexpr int kNoTransition = -1;
 
-struct Rule {
-  LifecycleCall call;
-  unsigned legalStates;
-  int transition; // a State value, or kNoTransition
+struct Rule
+{
+    LifecycleCall call;
+    unsigned legalStates;
+    int transition; // a State value, or kNoTransition
 };
 
-constexpr int To(State s) { return static_cast<int>(s); }
+constexpr int To(State s)
+{
+    return static_cast<int>(s);
+}
 
 /* The whole state graph, one row per rule.
  *
@@ -53,65 +62,83 @@ constexpr int To(State s) { return static_cast<int>(s); }
  */
 constexpr Rule kRules[] = {
     // Lifecycle transitions.
-    {LifecycleCall::EnterInitialization, kInstantiated,
+    {LifecycleCall::EnterInitialization,
+     kInstantiated,
      To(State::Initialization)},
     {LifecycleCall::ExitInitialization, kInitialization, To(State::Step)},
     {LifecycleCall::EnterEventMode, kStep, To(State::Event)},
     {LifecycleCall::EnterStepMode, kEvent, To(State::Step)},
     {LifecycleCall::Terminate, kRunning, To(State::Terminated)},
-    {LifecycleCall::Reset, kInstantiated | kRunning | kTerminated | kFailed,
+    {LifecycleCall::Reset,
+     kInstantiated | kRunning | kTerminated | kFailed,
      To(State::Instantiated)},
 
     // Non-transitioning calls.
     {LifecycleCall::ReadVariable, kReadable, kNoTransition},
     {LifecycleCall::WriteVariable, kWritable, kNoTransition},
     {LifecycleCall::SnapshotMemory,
-     kInstantiated | kRunning | kTerminated | kFailed, kNoTransition},
-    {LifecycleCall::FmuStateRead, kInstantiated | kRunning | kTerminated,
+     kInstantiated | kRunning | kTerminated | kFailed,
+     kNoTransition},
+    {LifecycleCall::FmuStateRead,
+     kInstantiated | kRunning | kTerminated,
      kNoTransition},
     {LifecycleCall::FmuStateRestore,
-     kInstantiated | kRunning | kTerminated | kFailed, kNoTransition},
+     kInstantiated | kRunning | kTerminated | kFailed,
+     kNoTransition},
     {LifecycleCall::StepModeQuery, kStep, kNoTransition},
-    {LifecycleCall::EvaluateDiscreteStates, kInitialization | kEvent,
+    {LifecycleCall::EvaluateDiscreteStates,
+     kInitialization | kEvent,
      kNoTransition},
     {LifecycleCall::UpdateDiscreteStates, kEvent, kNoTransition},
     {LifecycleCall::DoStep, kStep, kNoTransition},
 };
 
-const Rule &RuleFor(LifecycleCall call) {
-  for (const auto &rule : kRules) {
-    if (rule.call == call) {
-      return rule;
+const Rule& RuleFor(LifecycleCall call)
+{
+    for (const auto& rule : kRules) {
+        if (rule.call == call) {
+            return rule;
+        }
     }
-  }
-  // Every LifecycleCall has a row; the first is a safe, non-permissive
-  // fallback that can never be reached.
-  return kRules[0];
+    // Every LifecycleCall has a row; the first is a safe, non-permissive
+    // fallback that can never be reached.
+    return kRules[0];
 }
 
 } // namespace
 
-Lifecycle::Lifecycle() noexcept : m_state{State::Instantiated} {}
+Lifecycle::Lifecycle() noexcept
+    : m_state{State::Instantiated}
+{ }
 
-Lifecycle::State Lifecycle::CurrentState() const noexcept { return m_state; }
-
-bool Lifecycle::Allows(LifecycleCall call) const noexcept {
-  return (RuleFor(call).legalStates & StateBit(m_state)) != 0u;
+Lifecycle::State Lifecycle::CurrentState() const noexcept
+{
+    return m_state;
 }
 
-void Lifecycle::OnSuccess(LifecycleCall call) noexcept {
-  const auto transition = RuleFor(call).transition;
-  if (transition != kNoTransition) {
-    m_state = static_cast<State>(transition);
-  }
+bool Lifecycle::Allows(LifecycleCall call) const noexcept
+{
+    return (RuleFor(call).legalStates & StateBit(m_state)) != 0u;
 }
 
-void Lifecycle::Fail() noexcept { m_state = State::Failed; }
+void Lifecycle::OnSuccess(LifecycleCall call) noexcept
+{
+    const auto transition = RuleFor(call).transition;
+    if (transition != kNoTransition) {
+        m_state = static_cast<State>(transition);
+    }
+}
 
-void Lifecycle::RestoreFromSnapshot() noexcept {
-  if (m_state == State::Failed) {
-    m_state = State::Step;
-  }
+void Lifecycle::Fail() noexcept
+{
+    m_state = State::Failed;
+}
+
+void Lifecycle::RestoreFromSnapshot() noexcept
+{
+    if (m_state == State::Failed) {
+        m_state = State::Step;
+    }
 }
 
 } // namespace cppfmu

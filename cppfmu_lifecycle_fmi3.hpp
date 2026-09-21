@@ -6,7 +6,8 @@
 #ifndef CPPFMU_LIFECYCLE_FMI3_HPP
 #define CPPFMU_LIFECYCLE_FMI3_HPP
 
-namespace cppfmu {
+namespace cppfmu
+{
 
 /* The kind of call the host is making, grouped by the rule that governs it.
  *
@@ -16,26 +17,27 @@ namespace cppfmu {
  * rule, not one per C entry point. The transition-bearing lifecycle calls each
  * keep their own value because each moves to a different state.
  */
-enum class LifecycleCall {
-  // Lifecycle transitions -- each moves the instance to a new state.
-  EnterInitialization, // Instantiated      -> Initialization
-  ExitInitialization,  // Initialization    -> Step
-  EnterEventMode,      // Step              -> Event
-  EnterStepMode,       // Event             -> Step
-  Terminate,           // Init/Step/Event   -> Terminated
-  Reset,               // any               -> Instantiated
+enum class LifecycleCall
+{
+    // Lifecycle transitions -- each moves the instance to a new state.
+    EnterInitialization, // Instantiated      -> Initialization
+    ExitInitialization,  // Initialization    -> Step
+    EnterEventMode,      // Step              -> Event
+    EnterStepMode,       // Event             -> Step
+    Terminate,           // Init/Step/Event   -> Terminated
+    Reset,               // any               -> Instantiated
 
-  // Non-transitioning calls -- legal in a set of states, but a success
-  // leaves the instance where it was.
-  ReadVariable,           // every state before Terminate, plus Terminated
-  WriteVariable,          // every state before Terminate
-  SnapshotMemory,         // any state, Failed included
-  FmuStateRead,           // any state except Failed
-  FmuStateRestore,        // any state (recovery handled by RestoreFromSnapshot)
-  StepModeQuery,          // Step only (directional/adjoint/output derivatives)
-  EvaluateDiscreteStates, // Initialization or Event
-  UpdateDiscreteStates,   // Event only
-  DoStep                  // Step only
+    // Non-transitioning calls -- legal in a set of states, but a success
+    // leaves the instance where it was.
+    ReadVariable,    // every state before Terminate, plus Terminated
+    WriteVariable,   // every state before Terminate
+    SnapshotMemory,  // any state, Failed included
+    FmuStateRead,    // any state except Failed
+    FmuStateRestore, // any state (recovery handled by RestoreFromSnapshot)
+    StepModeQuery,   // Step only (directional/adjoint/output derivatives)
+    EvaluateDiscreteStates, // Initialization or Event
+    UpdateDiscreteStates,   // Event only
+    DoStep                  // Step only
 };
 
 /* The lifecycle of one FMI 3.0 Co-Simulation instance.
@@ -48,50 +50,52 @@ enum class LifecycleCall {
  * state graph reads and tests as a unit, without instantiating an FMU or
  * crossing the C linkage boundary.
  */
-class Lifecycle {
+class Lifecycle
+{
 public:
-  /* The five modes FMI 3.0 Co-Simulation moves an instance through, plus
+    /* The five modes FMI 3.0 Co-Simulation moves an instance through, plus
    * Failed: not a mode of the interface but the state an instance is left in
    * once a call has returned fmi3Error, from which only freeing, resetting
    * and restoring a saved state escape.
    */
-  enum class State {
-    Instantiated,
-    Initialization,
-    Step,
-    Event,
-    Terminated,
-    Failed
-  };
+    enum class State
+    {
+        Instantiated,
+        Initialization,
+        Step,
+        Event,
+        Terminated,
+        Failed
+    };
 
-  Lifecycle() noexcept;
+    Lifecycle() noexcept;
 
-  State CurrentState() const noexcept;
+    State CurrentState() const noexcept;
 
-  /* True when 'call' may be made in the current state. A call refused here
+    /* True when 'call' may be made in the current state. A call refused here
    * never reaches the slave and changes nothing.
    */
-  bool Allows(LifecycleCall call) const noexcept;
+    bool Allows(LifecycleCall call) const noexcept;
 
-  /* Advances the instance to the state a successful 'call' leaves it in.
+    /* Advances the instance to the state a successful 'call' leaves it in.
    * A no-op for calls that carry no transition.
    */
-  void OnSuccess(LifecycleCall call) noexcept;
+    void OnSuccess(LifecycleCall call) noexcept;
 
-  /* Latches Failed. Called for any throw that is not a refusal (a
+    /* Latches Failed. Called for any throw that is not a refusal (a
    * std::logic_error is a violated precondition, not a failed simulation,
    * and does not come here).
    */
-  void Fail() noexcept;
+    void Fail() noexcept;
 
-  /* FMI 3.0's recovery idiom: restore a Step-mode snapshot and keep
+    /* FMI 3.0's recovery idiom: restore a Step-mode snapshot and keep
    * stepping. The only path from Failed back to Step; a no-op from any
    * other state, where the instance keeps the mode it restored into.
    */
-  void RestoreFromSnapshot() noexcept;
+    void RestoreFromSnapshot() noexcept;
 
 private:
-  State m_state;
+    State m_state;
 };
 
 } // namespace cppfmu
