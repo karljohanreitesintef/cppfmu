@@ -54,9 +54,14 @@ class CppFmuConan(ConanFile):
     def export(self):
         copy(self, "version.txt", self.recipe_folder, self.export_folder)
         git = Git(self, self.recipe_folder)
-        if environ.get("CI") == "true":
+        if environ.get("GITHUB_ACTIONS") == "true":
             scm_commit = environ.get("GITHUB_SHA")
             scm_url = f"{environ.get('GITHUB_SERVER_URL')}/{environ.get('GITHUB_REPOSITORY')}"
+        elif environ.get("GITLAB_CI") == "true":
+            # The GitLab project only builds; the source of record is the URL the
+            # pipeline names in CPPFMU_SOURCE_URL, which must hold CI_COMMIT_SHA.
+            scm_commit = environ["CI_COMMIT_SHA"]
+            scm_url = environ["CPPFMU_SOURCE_URL"]
         else:
             if git.is_dirty():
                 raise ConanInvalidConfiguration(
