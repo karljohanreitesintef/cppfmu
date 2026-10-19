@@ -96,6 +96,7 @@ if(CPPFMU_FMI_ALL)
     target_compile_features(cs_test PRIVATE cxx_std_11)
     target_link_libraries(cs_test PRIVATE cppfmu)
     add_test(NAME "cs_test" COMMAND cs_test)
+    set_tests_properties("cs_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 
     add_executable(cs_test_fmi3
         "tests/cs_test_fmi3.cpp"
@@ -106,6 +107,7 @@ if(CPPFMU_FMI_ALL)
     target_compile_definitions(cs_test_fmi3 PRIVATE CPPFMU_USE_FMI_3_0)
     target_link_libraries(cs_test_fmi3 PRIVATE cppfmu)
     add_test(NAME "cs_test_fmi3" COMMAND cs_test_fmi3)
+    set_tests_properties("cs_test_fmi3" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 
     add_executable(lifecycle_fmi3_test
         "tests/lifecycle_fmi3_test.cpp"
@@ -114,6 +116,7 @@ if(CPPFMU_FMI_ALL)
     target_compile_features(lifecycle_fmi3_test PRIVATE cxx_std_11)
     target_include_directories(lifecycle_fmi3_test PRIVATE ${CMAKE_SOURCE_DIR})
     add_test(NAME "lifecycle_fmi3_test" COMMAND lifecycle_fmi3_test)
+    set_tests_properties("lifecycle_fmi3_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 elseif(CPPFMU_FMI_1)
     add_executable(cs_test
         "tests/cs_test.cpp"
@@ -123,6 +126,7 @@ elseif(CPPFMU_FMI_1)
     target_compile_features(cs_test PRIVATE cxx_std_11)
     target_link_libraries(cs_test PRIVATE cppfmu)
     add_test(NAME "cs_test" COMMAND cs_test)
+    set_tests_properties("cs_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 elseif(CPPFMU_FMI_3)
     add_executable(cs_test
         "tests/cs_test_fmi3.cpp"
@@ -132,6 +136,7 @@ elseif(CPPFMU_FMI_3)
     target_compile_features(cs_test PRIVATE cxx_std_11)
     target_link_libraries(cs_test PRIVATE cppfmu)
     add_test(NAME "cs_test" COMMAND cs_test)
+    set_tests_properties("cs_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 
     add_executable(lifecycle_fmi3_test
         "tests/lifecycle_fmi3_test.cpp"
@@ -140,6 +145,7 @@ elseif(CPPFMU_FMI_3)
     target_compile_features(lifecycle_fmi3_test PRIVATE cxx_std_11)
     target_include_directories(lifecycle_fmi3_test PRIVATE ${CMAKE_SOURCE_DIR})
     add_test(NAME "lifecycle_fmi3_test" COMMAND lifecycle_fmi3_test)
+    set_tests_properties("lifecycle_fmi3_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 else()
     add_executable(cs_test
         "tests/cs_test.cpp"
@@ -149,4 +155,5 @@ else()
     target_compile_features(cs_test PRIVATE cxx_std_11)
     target_link_libraries(cs_test PRIVATE cppfmu)
     add_test(NAME "cs_test" COMMAND cs_test)
+    set_tests_properties("cs_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 endif()
