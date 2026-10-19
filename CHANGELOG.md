@@ -14,6 +14,9 @@ release notes.
 Unreleased
 ----------
 
+- Tests: ctest labels `fmu` and `unit`, TIMEOUT 240
+  (FhSim contract C9).
+
 ### Added
 - Combined FMI 2.0 + FMI 3.0 build, selected with the Conan option
   `use_fmi_version="all"`. The resulting package ships both C API wrappers and
