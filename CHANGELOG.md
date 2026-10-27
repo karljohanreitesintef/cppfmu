@@ -15,6 +15,9 @@ Unreleased
 ----------
 
 ### Added
+- `SlaveInstance::TerminateRequested()`: `fmi2GetBooleanStatus(fmi2Terminated)`
+  answers it. A slave that wants the simulation to end returns true; the
+  default is false, as before.
 - Combined FMI 2.0 + FMI 3.0 build, selected with the Conan option
   `use_fmi_version="all"`. The resulting package ships both C API wrappers and
   sets no version macro, so a single package can serve one consumer that builds

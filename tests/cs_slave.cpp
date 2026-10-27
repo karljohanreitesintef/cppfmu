@@ -177,6 +177,10 @@ public:
         cppfmu::FMIBoolean newStep,
         cppfmu::FMIReal& endOfStep) override
     {
+        // A step longer than 2.5 also asks to end the simulation.
+        if (communicationStepSize > 2.5) {
+            terminateRequested_ = true;
+        }
         // A step longer than 1.0 is discarded after 1.0.
         if (communicationStepSize > 1.0) {
             endOfStep = currentCommunicationPoint + 1.0;
@@ -185,8 +189,11 @@ public:
         return true;
     }
 
+    bool TerminateRequested() const override { return terminateRequested_; }
+
 private:
     cppfmu::Memory memory_;
+    bool terminateRequested_ = false;
     cppfmu::FMIReal value_ = 0.0;
     bool derivativeSupported_ = false;
     cppfmu::FMIReal seed_ = 1.0;

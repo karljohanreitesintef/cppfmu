@@ -1157,10 +1157,9 @@ fmi2Status fmi2GetBooleanStatus(
         return fmi2Error;
     }
     // Importers ask for fmi2Terminated after fmi2DoStep returned fmi2Discard
-    // (4.2.3). A slave cannot ask to end the simulation, so the answer is
-    // always no.
+    // (4.2.3). The slave decides whether it wants the simulation to end.
     if (s == fmi2Terminated && value != nullptr) {
-        *value = fmi2False;
+        *value = component->slave->TerminateRequested() ? fmi2True : fmi2False;
         return fmi2OK;
     }
     component->logger.Log(
