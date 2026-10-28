@@ -21,7 +21,7 @@ enum class LifecycleCall
 {
     // Lifecycle transitions -- each moves the instance to a new state.
     EnterInitialization, // Instantiated      -> Initialization
-    ExitInitialization,  // Initialization    -> Step
+    ExitInitialization,  // Initialization    -> Step (Event if eventModeUsed)
     EnterEventMode,      // Step              -> Event
     EnterStepMode,       // Event             -> Step
     Terminate,           // Init/Step/Event   -> Terminated
@@ -29,12 +29,14 @@ enum class LifecycleCall
 
     // Non-transitioning calls -- legal in a set of states, but a success
     // leaves the instance where it was.
-    ReadVariable,    // every state before Terminate, plus Terminated
-    WriteVariable,   // every state before Terminate
-    SnapshotMemory,  // any state, Failed included
-    FmuStateRead,    // any state except Failed
-    FmuStateRestore, // any state (recovery handled by RestoreFromSnapshot)
-    StepModeQuery,   // Step only (directional/adjoint/output derivatives)
+    ReadVariable,      // every state before Terminate, plus Terminated
+    WriteVariable,     // every state before Terminate
+    SnapshotMemory,    // any state, Failed included
+    FmuStateRead,      // any state except Failed
+    FmuStateRestore,   // any state (the mode is set by RestoreFromSnapshot)
+    DerivativeQuery,   // Initialization, Step, Event or Terminated
+                       // (directional/adjoint derivatives)
+    OutputDerivatives, // Step, and Intermediate Update when gets are allowed
     EvaluateDiscreteStates, // Initialization or Event
     UpdateDiscreteStates,   // Event only
     DoStep                  // Step only
@@ -45,7 +47,7 @@ enum class LifecycleCall
  * Owns the instance's state and is the only thing that can change it. A state
  * change happens only through a named transition -- OnSuccess() for the calls
  * whose success advances the instance, Fail() for a throw that is not a mere
- * refusal, and RestoreFromSnapshot() for FMI 3.0's one way back from Failed.
+ * refusal, and RestoreFromSnapshot() for a restored FMU state.
  * The legal-transition table it consults lives in one place, so the whole
  * state graph reads and tests as a unit, without instantiating an FMU or
  * crossing the C linkage boundary.
@@ -53,10 +55,12 @@ enum class LifecycleCall
 class Lifecycle
 {
 public:
-    /* The five modes FMI 3.0 Co-Simulation moves an instance through, plus
+    /* The six modes FMI 3.0 Co-Simulation moves an instance through, plus
    * Failed: not a mode of the interface but the state an instance is left in
    * once a call has returned fmi3Error, from which only freeing, resetting
-   * and restoring a saved state escape.
+   * and restoring a saved state escape. IntermediateUpdate is entered only by
+   * the FMU, from within fmi3DoStep, for as long as it is in the importer's
+   * fmi3IntermediateUpdateCallback.
    */
     enum class State
     {
@@ -65,10 +69,15 @@ public:
         Step,
         Event,
         Terminated,
-        Failed
+        Failed,
+        IntermediateUpdate
     };
 
-    Lifecycle() noexcept;
+    /* 'eventModeUsed' is the argument of fmi3InstantiateCoSimulation: FMI 3.0
+   * puts an instance that uses Event Mode in Event Mode, not Step Mode, when
+   * it leaves Initialization Mode.
+   */
+    explicit Lifecycle(bool eventModeUsed = false) noexcept;
 
     State CurrentState() const noexcept;
 
@@ -88,14 +97,42 @@ public:
    */
     void Fail() noexcept;
 
-    /* FMI 3.0's recovery idiom: restore a Step-mode snapshot and keep
-   * stepping. The only path from Failed back to Step; a no-op from any
-   * other state, where the instance keeps the mode it restored into.
+    /* True when an FMU state can be taken in 'mode', and so restored into it:
+   * every mode but Failed and IntermediateUpdate, where FMI 3.0 does not
+   * allow fmi3GetFMUState.
    */
-    void RestoreFromSnapshot() noexcept;
+    static bool IsSnapshotMode(State mode) noexcept;
+
+    /* Puts the instance in 'saved', the mode the restored FMU state was taken
+   * in: FMI 3.0 requires a state to hold everything needed to continue from
+   * it (2.2.6), so an instance restored into keeps going from that mode, not
+   * its own. This is also FMI 3.0's recovery idiom -- restoring a Step-mode
+   * state is the way back from Failed other than Reset. A no-op when
+   * 'saved' is not a snapshot mode.
+   */
+    void RestoreFromSnapshot(State saved) noexcept;
+
+    /* Step -> IntermediateUpdate, around the importer's
+   * fmi3IntermediateUpdateCallback. In it, reading variables and output
+   * derivatives is legal if 'variableGetAllowed' and until the first write;
+   * writing variables if 'variableSetRequested'; nothing else. A no-op
+   * outside Step.
+   */
+    void EnterIntermediateUpdate(
+        bool variableSetRequested,
+        bool variableGetAllowed) noexcept;
+
+    /* IntermediateUpdate -> Step. A no-op from any other state: an instance
+   * that failed during the update stays Failed.
+   */
+    void LeaveIntermediateUpdate() noexcept;
 
 private:
     State m_state;
+    bool m_eventModeUsed;
+    bool m_setRequested = false;
+    bool m_getAllowed = false;
+    bool m_setStarted = false;
 };
 
 } // namespace cppfmu

@@ -173,6 +173,10 @@ public:
         const FMIByte data[],
         std::size_t size);
 
+    // Called from fmi2GetBooleanStatus(fmi2Terminated). True when the slave
+    // wants the simulation to end. Returns false by default.
+    virtual bool TerminateRequested() const;
+
     // Called from fmi2DoStep()/fmiDoStep(). Must be implemented in model code.
     virtual bool DoStep(
         FMIReal currentCommunicationPoint,

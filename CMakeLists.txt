@@ -98,6 +98,30 @@ if(CPPFMU_FMI_ALL)
     add_test(NAME "cs_test" COMMAND cs_test)
     set_tests_properties("cs_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 
+    # The FMI 2.0 test again, with the wrapper's log category changed.
+    add_executable(cs_test_log_category
+        "tests/cs_test.cpp"
+        "tests/cs_slave.cpp"
+        "fmi_functions.cpp"
+    )
+    target_compile_features(cs_test_log_category PRIVATE cxx_std_11)
+    target_compile_definitions(cs_test_log_category PRIVATE CPPFMU_LOG_CATEGORY="myCategory")
+    target_link_libraries(cs_test_log_category PRIVATE cppfmu)
+    add_test(NAME "cs_test_log_category" COMMAND cs_test_log_category)
+    set_tests_properties("cs_test_log_category" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
+
+    # And with a NULL category, for an FMU that declares no LogCategories.
+    add_executable(cs_test_null_log_category
+        "tests/cs_test.cpp"
+        "tests/cs_slave.cpp"
+        "fmi_functions.cpp"
+    )
+    target_compile_features(cs_test_null_log_category PRIVATE cxx_std_11)
+    target_compile_definitions(cs_test_null_log_category PRIVATE CPPFMU_LOG_CATEGORY=NULL)
+    target_link_libraries(cs_test_null_log_category PRIVATE cppfmu)
+    add_test(NAME "cs_test_null_log_category" COMMAND cs_test_null_log_category)
+    set_tests_properties("cs_test_null_log_category" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
+
     add_executable(cs_test_fmi3
         "tests/cs_test_fmi3.cpp"
         "tests/cs_slave_fmi3.cpp"
@@ -117,6 +141,16 @@ if(CPPFMU_FMI_ALL)
     target_include_directories(lifecycle_fmi3_test PRIVATE ${CMAKE_SOURCE_DIR})
     add_test(NAME "lifecycle_fmi3_test" COMMAND lifecycle_fmi3_test)
     set_tests_properties("lifecycle_fmi3_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
+
+    add_executable(intermediate_update_fmi3_test
+        "tests/intermediate_update_fmi3_test.cpp"
+        "fmi3_functions.cpp"
+    )
+    target_compile_features(intermediate_update_fmi3_test PRIVATE cxx_std_11)
+    target_compile_definitions(intermediate_update_fmi3_test PRIVATE CPPFMU_USE_FMI_3_0)
+    target_link_libraries(intermediate_update_fmi3_test PRIVATE cppfmu)
+    add_test(NAME "intermediate_update_fmi3_test" COMMAND intermediate_update_fmi3_test)
+    set_tests_properties("intermediate_update_fmi3_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 elseif(CPPFMU_FMI_1)
     add_executable(cs_test
         "tests/cs_test.cpp"
@@ -124,6 +158,9 @@ elseif(CPPFMU_FMI_1)
         "fmi_functions.cpp"
     )
     target_compile_features(cs_test PRIVATE cxx_std_11)
+    # FMI 1.0 prefixes every function with the model identifier; the test calls
+    # them unprefixed, so fmi_functions.cpp must be compiled with an empty one.
+    target_compile_definitions(cs_test PRIVATE "MODEL_IDENTIFIER=")
     target_link_libraries(cs_test PRIVATE cppfmu)
     add_test(NAME "cs_test" COMMAND cs_test)
     set_tests_properties("cs_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
@@ -146,6 +183,16 @@ elseif(CPPFMU_FMI_3)
     target_include_directories(lifecycle_fmi3_test PRIVATE ${CMAKE_SOURCE_DIR})
     add_test(NAME "lifecycle_fmi3_test" COMMAND lifecycle_fmi3_test)
     set_tests_properties("lifecycle_fmi3_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
+
+    add_executable(intermediate_update_fmi3_test
+        "tests/intermediate_update_fmi3_test.cpp"
+        "fmi3_functions.cpp"
+    )
+    target_compile_features(intermediate_update_fmi3_test PRIVATE cxx_std_11)
+    target_compile_definitions(intermediate_update_fmi3_test PRIVATE CPPFMU_USE_FMI_3_0)
+    target_link_libraries(intermediate_update_fmi3_test PRIVATE cppfmu)
+    add_test(NAME "intermediate_update_fmi3_test" COMMAND intermediate_update_fmi3_test)
+    set_tests_properties("intermediate_update_fmi3_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 else()
     add_executable(cs_test
         "tests/cs_test.cpp"
@@ -156,4 +203,28 @@ else()
     target_link_libraries(cs_test PRIVATE cppfmu)
     add_test(NAME "cs_test" COMMAND cs_test)
     set_tests_properties("cs_test" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
+
+    # The FMI 2.0 test again, with the wrapper's log category changed.
+    add_executable(cs_test_log_category
+        "tests/cs_test.cpp"
+        "tests/cs_slave.cpp"
+        "fmi_functions.cpp"
+    )
+    target_compile_features(cs_test_log_category PRIVATE cxx_std_11)
+    target_compile_definitions(cs_test_log_category PRIVATE CPPFMU_LOG_CATEGORY="myCategory")
+    target_link_libraries(cs_test_log_category PRIVATE cppfmu)
+    add_test(NAME "cs_test_log_category" COMMAND cs_test_log_category)
+    set_tests_properties("cs_test_log_category" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
+
+    # And with a NULL category, for an FMU that declares no LogCategories.
+    add_executable(cs_test_null_log_category
+        "tests/cs_test.cpp"
+        "tests/cs_slave.cpp"
+        "fmi_functions.cpp"
+    )
+    target_compile_features(cs_test_null_log_category PRIVATE cxx_std_11)
+    target_compile_definitions(cs_test_null_log_category PRIVATE CPPFMU_LOG_CATEGORY=NULL)
+    target_link_libraries(cs_test_null_log_category PRIVATE cppfmu)
+    add_test(NAME "cs_test_null_log_category" COMMAND cs_test_null_log_category)
+    set_tests_properties("cs_test_null_log_category" PROPERTIES LABELS "fmu;unit" TIMEOUT 240)
 endif()

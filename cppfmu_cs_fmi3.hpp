@@ -338,6 +338,13 @@ public:
 
     /* Called from fmi3GetFMUState().
      * Throws std::logic_error by default.
+     *
+     * The state must hold everything the slave needs to continue from it.
+     * CPPFMU records the instance's mode alongside it and restores that too,
+     * so fmi3SetFMUState() can put a fresh instance straight into Step Mode
+     * without EnterInitializationMode() or ExitInitializationMode() ever
+     * having been called on it. Whatever those set up must therefore be part
+     * of the state as well.
      */
     virtual void GetFMUState(FMIFMUState* state);
 
@@ -357,7 +364,8 @@ public:
     virtual std::size_t SerializedFMUStateSize(FMIFMUState state);
 
     /* Called from fmi3SerializeFMUState().
-     * Throws std::logic_error by default.
+     * Throws std::logic_error by default. 'data' and 'size' cover the slave's
+     * part of the buffer only; CPPFMU writes a header of its own before it.
      */
     virtual void SerializeFMUState(
         FMIFMUState state,
@@ -371,8 +379,10 @@ public:
         const FMIByte data[],
         std::size_t size);
 
-    /* Called from fmi3GetDirectionalDerivative().
-     * Throws std::logic_error by default.
+    /* Called from fmi3GetDirectionalDerivative(), in Initialization, Step,
+     * Event or Terminated Mode. Throws std::logic_error by default. An
+     * override that cannot answer in the current mode throws std::logic_error
+     * too, which refuses the call without failing the instance.
      */
     virtual void GetDirectionalDerivative(
         const FMIValueReference unknowns[],
@@ -384,8 +394,10 @@ public:
         FMIReal sensitivity[],
         std::size_t nSensitivity) const;
 
-    /* Called from fmi3GetAdjointDerivative().
-     * Throws std::logic_error by default.
+    /* Called from fmi3GetAdjointDerivative(), in Initialization, Step,
+     * Event or Terminated Mode. Throws std::logic_error by default. An
+     * override that cannot answer in the current mode throws std::logic_error
+     * too, which refuses the call without failing the instance.
      */
     virtual void GetAdjointDerivative(
         const FMIValueReference unknowns[],
@@ -397,12 +409,16 @@ public:
         FMIReal sensitivity[],
         std::size_t nSensitivity) const;
 
-    /* Called from fmi3GetVariableDependencies().
+    /* Called from fmi3GetVariableDependencies(): fills, for each of the
+     * nDependencies dependencies of 'dependent', the element of 'dependent' it
+     * belongs to (elementIndicesOfDependent), the independent variable and its
+     * element, and the kind. Element indices start at 1; 0 means all elements
+     * of a variable.
      * Throws std::logic_error by default.
      */
     virtual void GetVariableDependencies(
         FMIValueReference dependent,
-        const std::size_t elementIndicesOfDependent[],
+        std::size_t elementIndicesOfDependent[],
         FMIValueReference independents[],
         std::size_t elementIndicesOfIndependents[],
         FMIDependencyKind dependencyKinds[],
@@ -448,6 +464,62 @@ public:
 
     // The instance is destroyed in fmi3FreeInstance().
     virtual ~SlaveInstance3() CPPFMU_NOEXCEPT;
+
+    /* The importer's answer to an intermediate update. */
+    struct IntermediateUpdateResult
+    {
+        bool earlyReturnRequested = false;
+        FMIReal earlyReturnTime = 0.0;
+    };
+
+    /* What IntermediateUpdate() forwards to. Set by the FMI layer when it
+     * instantiates the slave (and only if the importer provided a callback);
+     * model code does not call this.
+     */
+    using IntermediateUpdateFunction = std::function<IntermediateUpdateResult(
+        FMIReal time,
+        bool variableSetRequested,
+        bool variableGetAllowed,
+        bool stepFinished,
+        bool canReturnEarly)>;
+    void SetIntermediateUpdateFunction(IntermediateUpdateFunction function);
+
+protected:
+    /* True when the importer provided an fmi3IntermediateUpdateCallback, so
+     * that DoStep() may call IntermediateUpdate().
+     */
+    bool IntermediateUpdateAvailable() const CPPFMU_NOEXCEPT;
+
+    /* Enters Intermediate Update Mode from within DoStep(): calls the
+     * importer's fmi3IntermediateUpdateCallback, during which the importer may
+     * call fmi3Get{VariableType} and fmi3GetOutputDerivatives (if
+     * 'variableGetAllowed') and then fmi3Set{VariableType} (if
+     * 'variableSetRequested'), and returns to Step Mode when it returns.
+     * Every other call is refused meanwhile. Which variables the importer may
+     * access is for the slave to enforce: those with intermediateUpdate="true"
+     * that are in requiredIntermediateVariables, and no discrete inputs.
+     *
+     * 'time' must lie in the current step, [currentCommunicationPoint,
+     * currentCommunicationPoint + communicationStepSize], and must not precede
+     * an earlier update of the step with 'stepFinished'. An early return is
+     * reported only if 'canReturnEarly' (the importer's request is ignored
+     * otherwise), and its time lies in the current step.
+     *
+     * Throws std::logic_error when called outside DoStep(), without an
+     * importer callback, or with an invalid time; and std::runtime_error when
+     * the importer asked for an early return outside the step, or a call it
+     * made during the update failed the instance (DoStep() should let that
+     * propagate, so that the step fails).
+     */
+    IntermediateUpdateResult IntermediateUpdate(
+        FMIReal time,
+        bool variableSetRequested,
+        bool variableGetAllowed,
+        bool stepFinished,
+        bool canReturnEarly);
+
+private:
+    IntermediateUpdateFunction intermediateUpdate_;
 };
 
 } // namespace cppfmu
@@ -467,7 +539,9 @@ public:
  *
  *     logger = A std::function which the model code can use to log messages.
  *              The messages are forwarded to the simulation environment's
- *              logging facilities.
+ *              logging facilities, but only while logging is on for their
+ *              category (loggingOn, then fmi3SetDebugLogging), errors
+ *              included.
  *
  * Note that this function is declared in the global namespace.
  */
